@@ -1,0 +1,25 @@
+.paper-image {
+  width: 200px
+}
+h4 {
+  font-weight: bold;
+}
+body {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+}
+.spacer {
+  height: 20px;
+}
+.media-body {
+  padding-left: 10px;
+}
+.figure {
+  width: 100%;
+}
+.large-spacer {
+  height: 100px;
+}
+.math {
+  text-align: center
+}

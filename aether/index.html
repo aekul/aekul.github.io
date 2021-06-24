@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aether: An Embedded Domain Specific Sampling Language for Monte Carlo Rendering</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="text-center">Aether: An Embedded Domain Specific Sampling Language for Monte Carlo Rendering</h2>
+      <div class="spacer"></div>
+      <p><a href="https://people.csail.mit.edu/lukea/">Luke Anderson</a>, MIT CSAIL</p>
+      <p><a href="https://people.csail.mit.edu/tzumao/">Tzu-Mao Li</a>, MIT CSAIL</p>
+      <p><a href="https://mediatech.aalto.fi/~jaakko/">Jaakko Lehtinen</a>, Aalto University and NVIDIA</p>
+      <p><a href="https://people.csail.mit.edu/fredo/">Fr&eacute;do Durand</a>, MIT CSAIL and Inria, Universit&eacute; C&ocirc;te d’Azur</p>
+      <div class="spacer"></div>
+      <img class="figure" src="figure.png" alt="aether-figure">
+      <hr/>
+      <h2>Abstract</h2>
+      <p class="text-justify">
+      Implementing Monte Carlo integration requires
+      significant domain expertise. While simple samplers, such as unidirectional path
+      tracing, are relatively forgiving, more complex algorithms, such
+      as bidirectional path tracing or Metropolis methods, are notoriously difficult to
+      implement correctly. 
+      We propose Aether, an embedded domain specific language for Monte Carlo integration, which offers primitives for writing 
+      concise and correct-by-construction sampling and probability code. The user is tasked with writing sampling code, while our compiler 
+      automatically generates the code necessary for evaluating PDFs as well as the book keeping and combination of multiple sampling strategies. 
+      Our language focuses on ease of implementation for rapid exploration, at the cost of run time performance. 
+      We demonstrate the effectiveness of the language by implementing several
+      challenging rendering algorithms as well as
+      a new algorithm, which would
+      otherwise be prohibitively difficult.
+      </p>
+      <div class="spacer"></div>
+      <h2>Publication</h2>
+      Aether: An Embedded Domain Specific Sampling Language for Monte Carlo
+      Rendering<br/>
+      Luke Anderson, Tzu-Mao Li, Jaakko Lehtinen, Fr&eacute;do Durand<br/>
+      <em>ACM Transactions on Graphics 36(4) (In Proceedings of SIGGRAPH
+        2017)</em>
+
+      <div class="spacer"></div>
+      <h2>Files</h2>
+      <p><a
+         href="https://people.csail.mit.edu/lukea/aether/aether.pdf">SIGGRAPH 2017 Paper (9MB)</a></p>
+
+      <div class="spacer"></div>
+      <h2>Code</h2>
+      <p>The code for Aether is available <a href="https://github.com/aekul/aether">here</a>.</p>
+
+      <div class="spacer"></div>
+      <h2>Tutorial</h2>
+      <p>A detailed overview of Aether and its usage is available <a href="https://people.csail.mit.edu/lukea/aetherlang">here</a>.</p>
+
+      
+      <div class="spacer"></div>
+      <h2>Errata</h2>
+      <p>Equation 5 should read:</p>
+      <p class="math">`p(\omega) = \sqrt{| \det J^\text{T} J |}^{\color{red}{-1}} p(u_1,u_2)`</p>
+      <p>instead of:</p>
+      <p class="math">`p(\omega) = \sqrt{| \det J^\text{T} J |} p(u_1,u_2)`</p>
+      <div class="spacer"></div>
+      <h2>Acknowledgments</h2>
+      <p class="text-justify">
+      Jonathan Ragan-Kelley provided valuable feedback and helped scope the
+      project from its inception. Matt Pharr and Wenzel Jakob gave us useful
+      insights and encouragement.  The door scene was modeled by Miika Aittala,
+      Samuli Laine, and Jaakko Lehtinen.  The Sponza scene was modeled by Marko
+      Dabrovic.  The Cornell box scene with glass lamps was modeled by Toshiya
+      Hachisuka. This work was partially funded by DARPA REVEAL and Toyota.</p>  
+
+    </div>
+    <div class="large-spacer"></div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({ TeX: { extensions: ["color.js"] }});
+    </script>
+  </body>
+</html>

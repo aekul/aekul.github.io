@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Luke Anderson</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        var time = new Date();
+        var midnight = new Date().setHours(0, 0, 0, 0);
+        var eight = new Date().setHours(8, 0, 0, 0);
+        $("#portrait").attr("src", (time > midnight && time < eight) ? "sleep.png" : "portrait.png");
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="text-center">Luke Anderson</h1>
+      <div class="text-center"><img width=200 height=200 id="portrait"/></div>
+      <p>I am a PhD student at MIT CSAIL (lukea _at_ mit), where I am a member
+      of the computer graphics group. My advisor is <a href="https://people.csail.mit.edu/fredo/">Fr&eacute;do Durand</a>.</p> 
+      <p>My research interests include the design
+      and implementation of domain specific languages for problems in computer
+      graphics, and the application of machine learning to these languages and
+      their compilers. I have contributed to 3 domain
+      specific languages: Aether for Monte Carlo rendering, Halide for image
+      processing, and Taichi for physical simulation. I'm 
+      interested in domain specific languages for their ability to make
+      programming in a broad sense easier and this has been the primary goal of
+      my work: Aether makes it
+      easier to write complex rendering algorithms correctly, the Halide
+      autoschedulers make it
+      easier to find high performance implementations of image processing
+      pipelines, and Taichi makes easier to write high performance code for
+      spatially sparse computations, notably physical simulation.
+      </p>
+      <hr/>
+      <h2>Research</h2>
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="media col-md-12">
+          <div class="media-left media-top">
+            <img class="paper-image" src="autoscheduler-gpu.png" alt="aether">
+          </div>
+          <div class="media-body">
+            <h4 class="media-heading"><a
+                href="https://arxiv.org/abs/2012.07145">Learning to
+                Schedule Halide Pipelines for the GPU</a></h4>
+            <strong>Luke Anderson</strong>, Andrew Adams, Karima Ma, Tzu-Mao Li, Jonathan Ragan-Kelley
+            <!--<p><em>ACM Transactions on Graphics 36(4) (In Proceedings of SIGGRAPH 2017)</em></p>-->
+            <p><a href="https://arxiv.org/abs/2012.07145">paper</a></p>
+          </div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="media col-md-12">
+          <div class="media-left media-top">
+            <img class="paper-image" src="diff-taichi.png" alt="difftaichi2020">
+          </div>
+          <div class="media-body">
+            <h4 class="media-heading"><a href="https://github.com/yuanming-hu/difftaichi">DiffTaichi: Differentiable Programming for Physical Simulation</a></h4>
+            Yuanming Hu, <strong>Luke Anderson</strong>, Tzu-Mao Li, Qi Sun, Nathan Carr, Jonathan Ragan-Kelley, Fr&eacute;do Durand
+            <p><em>ICLR 2020</em></p>
+            <p><a href="https://arxiv.org/abs/1910.00935">paper</a></p>
+          </div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="media col-md-12">
+          <div class="media-left media-top">
+            <img class="paper-image" src="taichi.png" alt="taichi2019">
+          </div>
+          <div class="media-body">
+            <h4 class="media-heading"><a href="https://taichi.graphics/">Taichi: A Language for High-Performance Computation on Spatially Sparse Data Structures</a></h4>
+            Yuanming Hu, Tzu-Mao Li, <strong>Luke Anderson</strong>, Jonathan Ragan-Kelley, Fr&eacute;do Durand
+            <p><em>SIGGRAPH Asia 2019</em></p>
+            <p><a href="https://dl.acm.org/doi/10.1145/3355089.3356506">paper</a></p>
+          </div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="media col-md-12">
+          <div class="media-left media-top">
+            <img class="paper-image" src="autoscheduler-cpu.png" alt="autoscheduler2019">
+          </div>
+          <div class="media-body">
+            <h4 class="media-heading"><a href="https://halide-lang.org/papers/autoscheduler2019.html">Learning to Optimize Halide with Tree Search and Random Programs</a></h4>
+            Andrew Adams, Karima Ma, <strong>Luke Anderson</strong>, Riyadh Baghdadi, Tzu-Mao Li, Michael Gharbi, Benoit Steiner, Steven Johnson, Kayvon Fatahalian, Fr&eacute;do Durand, Jonathan Ragan-Kelley
+            <p><em>SIGGRAPH 2019</em></p>
+            <p><a href="https://halide-lang.org/papers/halide_autoscheduler_2019.pdf">paper</a></p>
+          </div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="media col-md-12">
+          <div class="media-left media-top">
+            <img class="paper-image" src="aether.png" alt="aether2017">
+          </div>
+          <div class="media-body">
+            <h4 class="media-heading"><a href="aether/index.html">Aether: An Embedded Domain Specific Sampling
+                Language for Monte Carlo Rendering</a></h4>
+            <strong>Luke Anderson</strong>, Tzu-Mao Li, Jaakko Lehtinen, Fr&eacute;do Durand
+            <p><em>SIGGRAPH 2017</em></p>
+            <p><a href="aether/aether.pdf">paper</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <br/><br/><br/><br/><br/><br/>
+    <br/><br/><br/><br/><br/><br/>
+    <div class="text-center">
+      <a href="http://accessibility.mit.edu">Accessibility</a>
+    </div>
+    <br/><br/><br/><br/><br/><br/>
+  </body>
+</html>

@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Aether</title>
+
+    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width">
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Aether</h1>
+        <p>An embedded domain specific sampling language for Monte Carlo rendering</p>
+        <p>
+          <a href="#getting-started">Getting Started</a>
+        </p>
+        <p>
+          <a href="#language-overview">Language Overview</a>
+        </p>
+        <p>
+          <a href="#tutorials">Tutorials</a>
+        </p>
+      </header>
+      <section>
+
+      <p><strong>Aether</strong> is a domain specific sampling language. It is embedded in C++ and was
+designed primarily for use in Monte Carlo rendering applications. The user
+writes sampling code, then at compile time Aether automatically derives
+the corresponding PDF code. The generated PDF code is consistent with the
+provided sampling code, making it easier to write correct Monte Carlo estimators.</p>
+
+<p>To learn more, see the language overview or tutorials; read the paper; or check
+out the code for <a href="https://github.com/aekul/aether">Aether</a> or our Mitsuba/Aether
+renderer, <a href="https://github.com/aekul/yotsuba">Yotsuba</a>.</p>
+
+<hr />
+
+<h2 id="getting-started"><a href="#getting-started"></a>Getting Started</h2>
+
+<h3 id="downloading-aether"><a href="#compiling"></a>Downloading Aether</h3>
+
+<p>Aether is available <a href="https://github.com/aekul/aether">here</a>.</p>
+
+<h3 id="compiling-aether"><a href="#compiling"></a>Compiling Aether</h3>
+
+<p>Aether is header only but uses features of C++11/14/17 that require a recent version of clang to compile. It has been tested with clang 3.7. The language makes extensive use of template metaprogramming and requires the following settings when compiling:</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code>-stdlib<span class="o">=</span>libc++
+-std<span class="o">=</span>c++1z
+-ftemplate-depth<span class="o">=</span>512
+-fconstexpr-steps<span class="o">=</span>127124200
+-fconstexpr-depth<span class="o">=</span>720
+</code></pre>
+</div>
+
+<h3 id="namespace"><a href="#simple_example"></a>Namespace</h3>
+
+<p>All Aether code is wrapped in the <code class="highlighter-rouge">aether</code> namespace.</p>
+
+<hr />
+
+<h2 id="language-overview"><a href="#language-overview"></a>Language Overview</h2>
+
+<h3 id="an-example-estimating-irradiance-at-a-point"><a href="#simple_example"></a>An Example: Estimating Irradiance at a Point</h3>
+
+<p>Suppose we want to compute the irradiance at a fixed point by using Monte Carlo
+integration to evaluate a hemispherical integral.</p>
+
+<h4 id="-sampling-the-hemisphere"><a href="#simple_example"></a> Sampling the Hemisphere</h4>
+
+<p>We want to importance sample from a cosine weighted hemisphere:</p>
+
+<div class="language-c++ highlighter-rouge"><pre class="highlight"><code><span class="c1">// Declare symbolic uniform random variables
+</span><span class="n">variable</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span> <span class="n">u1</span><span class="p">;</span>
+<span class="n">variable</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span> <span class="n">u2</span><span class="p">;</span>
+
+<span class="k">auto</span> <span class="n">r</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">u1</span><span class="p">);</span>
+<span class="k">auto</span> <span class="n">phi</span> <span class="o">=</span> <span class="mi">2</span><span class="n">_l</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">u2</span><span class="p">;</span> <span class="c1">// 2_l is a literal for 2.0
+</span><span class="k">auto</span> <span class="n">cosHemisphere</span> <span class="o">=</span> <span class="n">random_vector</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">(</span>
+  <span class="n">r</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span>
+  <span class="n">r</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span>
+  <span class="n">sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">u1</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre>
+</div>
+
+<p>The above code looks similar to regular numeric sampling code, but all of the
+expressions are symbolic. It starts with symbolic uniform random variables <code class="highlighter-rouge">u1</code> and <code class="highlighter-rouge">u2</code> and defines the symbolic expression to transform them into a random variable (<code class="highlighter-rouge">cosHemisphere</code>) representing directions on the hemisphere. The <code class="highlighter-rouge">random_vector&lt;N&gt;()</code> function constructs a vector of random variables,
+where 2 is the number of uniform random variables on which it depends. In
+this example, there are 2 uniforms — <code class="highlighter-rouge">u1</code> and <code class="highlighter-rouge">u2</code> — and
+the random vector has 3 outputs, because directions are two-dimensional but encoded with 3 coordinates.</p>
+
+<h4 id="-generating-samples"><a href=""></a> Generating Samples</h4>
+
+<p>Since <code class="highlighter-rouge">cosHemisphere</code> is symbolic, at this stage, nothing has actually been sampled. Every random vector in the language has a <code class="highlighter-rouge">Sample</code> method. If we want to generate samples from <code class="highlighter-rouge">cosHemisphere</code>, we call <code class="highlighter-rouge">Sample</code> with 2 numbers between 0 and 1, one each for <code class="highlighter-rouge">u1</code> and <code class="highlighter-rouge">u2</code>:</p>
+
+<div class="language-c++ highlighter-rouge"><pre class="highlight"><code><span class="k">auto</span> <span class="n">dir</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="mf">0.25</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.75</span><span class="n">f</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<p>It is important to note that the numbers provided to <code class="highlighter-rouge">Sample()</code> can be
+generated however we choose. Typically they will be generated by some
+pseudo-random number generator or quasi-Monte Carlo sequence, for example:</p>
+
+<div class="language-c++ highlighter-rouge"><pre class="highlight"><code><span class="k">auto</span> <span class="n">uv</span> <span class="o">=</span> <span class="n">someRNG</span><span class="p">.</span><span class="n">Next2D</span><span class="p">();</span>
+<span class="k">auto</span> <span class="n">dir</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">uv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">uv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+</code></pre>
+</div>
+
+<h4 id="-computing-the-pdf"><a href=""></a> Computing the PDF</h4>
+
+<p>At compile time, Aether automatically computes the symbolic Jacobian determinant and
+symbolic inverse, both of which are used when computing the PDF of samples.
+<code class="highlighter-rouge">cosHemisphere</code> has an automatically provided <code class="highlighter-rouge">Pdf</code> method.</p>
+
+<div class="language-c++ highlighter-rouge"><pre class="highlight"><code><span class="k">auto</span> <span class="n">dirPdf</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">dir</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<p>This method can compute not only the PDF of directions sampled by <code class="highlighter-rouge">cosHemisphere</code> but any given
+direction. This becomes particularly valuable when combining samples.</p>
+
+<h4 id="-computing-an-estimate"><a href=""></a> Computing an Estimate</h4>
+
+<p>Using Aether’s <code class="highlighter-rouge">Pdf()</code> method, computing an estimate is simple:</p>
+
+<div class="language-c++ highlighter-rouge"><pre class="highlight"><code><span class="c1">// User provided uniform sampler
+</span><span class="n">MyRng</span> <span class="n">rng</span><span class="p">;</span>
+
+<span class="n">Spectrum</span> <span class="n">total</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="kt">int</span> <span class="n">N</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">;</span>
+
+<span class="k">auto</span> <span class="n">myIntegrand</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">sample</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Spectrum</span> <span class="p">{</span>
+  <span class="c1">// user provided regular C++ code to compute Li * |cos(theta)|
+</span><span class="p">}</span>
+
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// Draw a sample
+</span>  <span class="k">auto</span> <span class="n">xCos</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">rng</span><span class="p">(),</span> <span class="n">rng</span><span class="p">());</span>
+
+  <span class="c1">// Compute the integrand
+</span>  <span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">myIntegrand</span><span class="p">(</span><span class="n">xCos</span><span class="p">);</span>
+
+  <span class="c1">// Compute the PDF
+</span>  <span class="k">auto</span> <span class="n">p</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">xCos</span><span class="p">);</span>
+
+  <span class="c1">// Add f(xCos) / p(xCos) to running total
+</span>  <span class="n">total</span> <span class="o">+=</span> <span class="n">f</span> <span class="o">/</span> <span class="n">p</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Compute the final estimate
+</span><span class="k">auto</span> <span class="n">estimate</span> <span class="o">=</span> <span class="n">total</span> <span class="o">/</span> <span class="n">N</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>This estimator is correct by construction because Aether uses symbolic
+differentiation to ensure that the sampling and PDF code are consistent.</p>
+
+<hr />
+
+<h3 id="-discrete-random-variables"><a href="#"></a> Discrete Random Variables</h3>
+
+<p>Discrete random variables in Aether are constructed from standard C++
+containers. They support the same <code class="highlighter-rouge">Sample()</code> and <code class="highlighter-rouge">Pdf()</code> methods as the
+continuous random variables.</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Emitter</span><span class="o">*&gt;</span> <span class="n">emitters</span> <span class="o">=</span> <span class="n">scene</span><span class="p">.</span><span class="n">getEmitters</span><span class="p">();</span>
+<span class="c1">// Create a uniform discrete distribution
+</span><span class="k">auto</span> <span class="n">emitterDiscrete</span> <span class="o">=</span> <span class="n">discrete</span><span class="p">(</span><span class="n">emitters</span><span class="p">);</span>
+
+<span class="c1">// Sample an emitter
+</span><span class="k">auto</span> <span class="n">em</span> <span class="o">=</span> <span class="n">emitterDiscrete</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">rng</span><span class="p">());</span>
+
+<span class="c1">// Compute its probability
+</span><span class="k">auto</span> <span class="n">p</span> <span class="o">=</span> <span class="n">emitterDiscrete</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">em</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h3 id="-strategies"><a href="#"></a> Strategies</h3>
+
+<p>Discrete random variables in Aether are constructed from standard C++
+containers. They support the same <code class="highlighter-rouge">Sample()</code> and <code class="highlighter-rouge">Pdf()</code> methods as the
+continuous random variables.</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Emitter</span><span class="o">*&gt;</span> <span class="n">emitters</span> <span class="o">=</span> <span class="n">scene</span><span class="p">.</span><span class="n">getEmitters</span><span class="p">();</span>
+<span class="c1">// Create a uniform discrete distribution
+</span><span class="k">auto</span> <span class="n">emitterDiscrete</span> <span class="o">=</span> <span class="n">discrete</span><span class="p">(</span><span class="n">emitters</span><span class="p">);</span>
+
+<span class="c1">// Sample an emitter
+</span><span class="k">auto</span> <span class="n">em</span> <span class="o">=</span> <span class="n">emitterDiscrete</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">rng</span><span class="p">());</span>
+
+<span class="c1">// Compute its probability
+</span><span class="k">auto</span> <span class="n">p</span> <span class="o">=</span> <span class="n">emitterDiscrete</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">em</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h3 id="-multiple-importance-sampling"><a href="#"></a> Multiple Importance Sampling</h3>
+
+<p>Multiple importance sampling requires evaluating several probability densities
+for each sample drawn.
+Suppose we wish to use MIS to combine the cosine hemisphere samples with samples from an analogous uniform hemisphere random variable <code class="highlighter-rouge">uniformHemisphere</code>. 
+A key feature of Aether that enables this is that the <code class="highlighter-rouge">Pdf()</code> method of random variables accepts as
+argument not just samples generated by its own <code class="highlighter-rouge">Sample()</code> method, but <em>any</em> sample.</p>
+
+<p>As a result, evaluating all four densities is easy. Denoting the cosine weighted sample as <code class="highlighter-rouge">xCos</code> and the uniform sample as <code class="highlighter-rouge">xUniform</code>, we simply compute:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// PDF of xCos if sampled by cosHemisphere
+</span><span class="k">auto</span> <span class="n">pCos</span> <span class="o">=</span> <span class="n">xCos</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">xCos</span><span class="p">);</span>
+<span class="c1">// PDF of xCos if sampled by uniformHemisphere
+</span><span class="k">auto</span> <span class="n">pUniformCos</span> <span class="o">=</span> <span class="n">xUniform</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">xCos</span><span class="p">);</span>
+<span class="c1">// PDF of xUniform if sampled by uniformHemisphere
+</span><span class="k">auto</span> <span class="n">pUniform</span> <span class="o">=</span> <span class="n">xUniform</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">xUniform</span><span class="p">);</span>
+<span class="c1">// PDF of xUniform if sampled by cosHemisphere
+</span><span class="k">auto</span> <span class="n">pCosUniform</span> <span class="o">=</span> <span class="n">xCos</span><span class="p">.</span><span class="n">Pdf</span><span class="p">(</span><span class="n">xUniform</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<p>All samples in Aether also store the random variable from which they were sampled, so we can
+use the <code class="highlighter-rouge">Pdf()</code> method on <code class="highlighter-rouge">xCos</code> and <code class="highlighter-rouge">xUniform</code> directly to compute the PDFs. However, no
+extra storage is needed at run time because all such dependencies are resolved statically.</p>
+
+<p>If the sample provided to <code class="highlighter-rouge">Pdf()</code> is not of the correct dimension
+or domain, the inverse will return invalid uniforms (outside [0, 1]) and <code class="highlighter-rouge">Pdf()</code>
+simply returns 0. The programmer does not need to manually check for these cases.</p>
+
+<h4 id="combine"><a href="#header-2"></a>Combine</h4>
+
+<p>To simplify the process of combining potentially arbitrary numbers of samples, Aether provides the <code class="highlighter-rouge">combine()</code> function, which accepts a user defined combining heuristic and any number of samples. The above
+example can be written more concisely as:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Estimator</span><span class="o">&lt;</span><span class="n">Spectrum</span><span class="o">&gt;</span> <span class="n">myEstimator</span><span class="p">(</span><span class="n">myIntegrand</span><span class="p">);</span>
+
+<span class="c1">// User provided code to compute the MIS weight
+</span><span class="k">struct</span> <span class="n">PowerHeuristic</span> <span class="p">{</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="kt">float</span> <span class="n">pdfA</span><span class="p">,</span> <span class="kt">float</span> <span class="n">pdfB</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="c1">// e.g. the power heuristic:
+</span>    <span class="k">return</span> <span class="p">(</span><span class="n">pdfA</span> <span class="o">*</span> <span class="n">pdfA</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">pdfA</span> <span class="o">*</span> <span class="n">pdfA</span> <span class="o">+</span> <span class="n">pdfB</span> <span class="o">*</span> <span class="n">pdfB</span><span class="p">);</span>
+  <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="c1">// Combine samples with power heuristic
+</span><span class="k">auto</span> <span class="n">combined</span> <span class="o">=</span> <span class="n">combine</span><span class="o">&lt;</span><span class="n">PowerHeuristic</span><span class="o">&gt;</span><span class="p">(</span><span class="n">xCos</span><span class="p">,</span> <span class="n">xUniform</span><span class="p">);</span>
+
+<span class="c1">// Accumulate weighted integrand values 
+</span><span class="n">total</span> <span class="o">+=</span> <span class="n">myEstimator</span><span class="p">(</span><span class="n">combined</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h3 id="-interfacing-with-deterministic-code"><a href="#"></a> Interfacing with Deterministic Code</h3>
+
+<p>Aether is designed to be usable with external code such as ray casting
+engines. This creates the need to compute densities that depend
+on data computed outside the language, for which symbolic descriptions are unavailable. 
+To balance the need for such an interface with the need for symbolic derivation,
+we require that the data coming from the deterministic external code be constant
+in the neighborhood of a sample. This means, for example, that ray casting
+cannot directly return an intersection point, but should instead return the 
+triangle’s vertices, which are constant in a neighborhood of the intersection,
+and that the intersection point coordinates must be computed in our language.
+This ensures that proper derivatives, inverses and densities can be derived symbolically.</p>
+
+<p>Aether provides the <code class="highlighter-rouge">ConstantCall</code> mechanism for calling
+external deterministic code. A triangle intersection is implemented as</p>
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Intersect ray (p, dir) with the scene and expect a constant as a result
+</span><span class="n">Intersection</span> <span class="n">its</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">ConstantCall</span><span class="p">(</span><span class="n">raycaster</span><span class="p">,</span> <span class="n">Ray</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">Value</span><span class="p">(),</span> <span class="n">dir</span><span class="p">.</span><span class="n">Value</span><span class="p">()));</span>
+
+<span class="c1">// Compute ray-triangle intersection in Aether
+</span><span class="k">auto</span> <span class="n">v0</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">its</span><span class="p">.</span><span class="n">v0</span><span class="p">);</span>
+<span class="k">auto</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">its</span><span class="p">.</span><span class="n">v1</span><span class="p">);</span>
+<span class="k">auto</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">its</span><span class="p">.</span><span class="n">v2</span><span class="p">);</span>
+<span class="k">auto</span> <span class="n">e1</span> <span class="o">=</span> <span class="n">v0</span> <span class="o">-</span> <span class="n">v2</span><span class="p">;</span>
+<span class="k">auto</span> <span class="n">e2</span> <span class="o">=</span> <span class="n">v1</span> <span class="o">-</span> <span class="n">v2</span><span class="p">;</span>
+<span class="k">auto</span> <span class="n">N</span> <span class="o">=</span> <span class="n">cross</span><span class="p">(</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">);</span> 
+<span class="k">auto</span> <span class="n">t</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">v0</span> <span class="o">-</span> <span class="n">p</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span> <span class="o">/</span> <span class="n">dot</span><span class="p">(</span><span class="n">dir</span><span class="p">,</span> <span class="n">N</span><span class="p">);</span>
+<span class="k">return</span>  <span class="n">p</span> <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="n">dir</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>The <code class="highlighter-rouge">Intersection</code> object returned by the ray casting
+engine includes the vertices (and other relevant information) of the intersected object. We first cast each
+vertex to a constant (<code class="highlighter-rouge">constant(its.v0)</code>, etc.) and implement a
+standard ray-triangle intersection in Aether to obtain the final
+intersection point.</p>
+
+<hr />
+
+<h3 id="-random-sequences"><a href="#"></a> Random Sequences</h3>
+
+<p>The random vector introduced above has a fixed size and is designed for situations when all its coordinates are sampled at once. Random sequences instead support the creation of incremental sequences
+of generic random variables. Each element of a random sequence is sampled from a strategy. We use this type to represent light paths. The type of data stored in the sequence is user provided, e.g., a Vertex type representing a point on a surface.</p>
+
+<p>Consider sampling a 2-vertex path segment starting from an emitter. This is implemented by a random sequence of two strategies, <code class="highlighter-rouge">SamplePointOnLightStrategy</code> (defined above), and <code class="highlighter-rouge">SampleHemiAndIntersectStrategy</code>, a strategy that picks a cosine weighted direction, traces a ray starting at the previous path vertex, and computes the intersection:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Strategy for sampling a cosine-weighted direction
+// and intersecting it with the scene
+</span><span class="k">struct</span> <span class="n">SampleHemiAndIntersectStrategy</span> <span class="p">{</span>
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span>
+                  <span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">path</span><span class="p">,</span>
+                  <span class="n">MyRng</span><span class="o">&amp;</span> <span class="n">rng</span><span class="p">,</span>
+                  <span class="n">Raycaster</span><span class="o">&amp;</span> <span class="n">raycaster</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+                  
+    <span class="c1">// Sample uniforms between 0 and 1
+</span>    <span class="k">auto</span> <span class="n">uv</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">Uniform2D</span><span class="p">(</span><span class="n">rng</span><span class="p">);</span>
+
+    <span class="c1">// Sample the outgoing direction
+</span>    <span class="c1">// cosHemisphere is defined as above
+</span>    <span class="k">auto</span> <span class="n">dir</span> <span class="o">=</span> <span class="n">cosHemisphere</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">uv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">uv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+
+    <span class="c1">// Get the previous Vertex from RandomSequence
+</span>    <span class="k">auto</span> <span class="n">p</span> <span class="o">=</span> <span class="n">path</span><span class="p">.</span><span class="n">Back</span><span class="p">();</span>
+    
+    <span class="c1">// Compute intersection for ray (p, dir) as above
+</span>    <span class="c1">// ...
+</span>  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="c1">// Create an initially empty path
+</span><span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;</span> <span class="n">path</span><span class="p">;</span>
+
+<span class="c1">// Append a point on a light
+</span><span class="n">SamplePointOnLightStrategy</span> <span class="n">samplePointOnLight</span><span class="p">;</span>
+<span class="n">path</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">samplePointOnLight</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">emitters</span><span class="p">);</span>
+
+<span class="c1">// Append an intersection point
+</span><span class="n">SampleHemiAndIntersectStrategy</span> <span class="n">sampleHemiAndIntersect</span><span class="p">;</span>
+<span class="n">path</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleHemiAndIntersect</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">raycaster</span><span class="p">);</span>
+
+<span class="c1">// Actually sample the strategies
+</span><span class="n">path</span><span class="p">.</span><span class="n">Sample</span><span class="p">();</span>
+</code></pre>
+</div>
+
+<p>The fundamental operation of a random sequence is to <code class="highlighter-rouge">Append</code> new
+elements to the sequence. When 
+<code class="highlighter-rouge">path.Append(samplePointOnLight, ...)</code> is called, the
+<code class="highlighter-rouge">samplePointOnLight</code> strategy is stored, without being sampled. Random
+sequences are evaluated lazily. When <code class="highlighter-rouge">Sample()</code> is called, each
+strategy is then sampled in sequence with
+<code class="highlighter-rouge">path</code> as an argument (along with any other provided arguments). The result is a new <code class="highlighter-rouge">Vertex</code> sample,
+which is stored along with the strategy from which it was sampled.</p>
+
+<p>Like the other random variables in Aether, random sequences offer a
+<code class="highlighter-rouge">Pdf()</code> method. Like all other random variables, the random sequence <code class="highlighter-rouge">Pdf()</code> method can be used to compute the PDF of any sequence, not just itself, and hence random sequences can be combined with MIS just as easily.</p>
+
+<p>Aether also provides the functions <code class="highlighter-rouge">slice</code>, <code class="highlighter-rouge">concat</code>, and <code class="highlighter-rouge">reverse</code> for extracting subsequences, concatenating sequences, and reversing their order.</p>
+
+<p>The separation of strategies and random sequences has the
+additional benefit that strategies can be built to be orthogonal and easily reused: they are not tied
+to a specific random sequence nor to a particular algorithm. For instance, in the above example, changing the cosine weighted hemisphere sampling to uniform sampling would be as simple as defining a new strategy based on <code class="highlighter-rouge">uniformHemisphere</code> and appending that instead.</p>
+
+<hr />
+
+<h2 id="rendering-algorithm-tutorials"><a href="#tutorials"></a>Rendering Algorithm Tutorials</h2>
+
+<p>Yotsuba is a Mitsuba based renderer that uses Aether to generate samples and compute PDFs. It is available <a href="https://github.com/aekul/yotsuba">here</a> and contains implementations of many standard rendering algorithms.</p>
+
+<p>The following sections describe how to write a rendering algorithm in Yotsuba.</p>
+
+<h3 id="writing-a-direct-lighting-integrator-in-yotsuba"><a href="#header-2"></a>Writing a Direct Lighting Integrator in Yotsuba</h3>
+
+<p>We first need to create a new integrator. See Mitsuba’s documentation for more details on how to do this. The main logic of our direct lighting integrator will be implemented in the <code class="highlighter-rouge">Li()</code> method:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Spectrum</span> <span class="n">Li</span><span class="p">(</span><span class="k">const</span> <span class="n">RayDifferential</span> <span class="o">&amp;</span><span class="n">ray</span><span class="p">,</span> <span class="n">RadianceQueryRecord</span> <span class="o">&amp;</span><span class="n">rRec</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+  <span class="c1">// Our direct lighting integrator logic
+</span><span class="p">}</span>
+</code></pre>
+</div>
+
+<p>Writing rendering algorithms with Aether is different from traditional
+approaches like in pbrt and Mitsuba.</p>
+
+<h4 id="create-a-path">Create a Path</h4>
+
+<p>Aether provides a path data structure (<code class="highlighter-rouge">RandomSequence</code>) that is used as the
+basic building block of all rendering algorithms. We sample an entire light path by
+repeatedly appending new sampled vertices to this data structure. But to start,
+we simply create an empty path:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Create camera path
+</span><span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;</span> <span class="n">camPath</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<h4 id="append-the-camera-position">Append the Camera Position</h4>
+
+<p>In order to append new vertices to our path, 
+All vertices in a <code class="highlighter-rouge">RandomSequence</code> are sampled from <em>strategies</em>. In order to
+append the camera position as the first vertex in our path, we need to create a
+strategy:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">struct</span> <span class="n">sample_position_on_sensor_t</span> <span class="p">{</span>
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">seq</span><span class="p">,</span> <span class="k">const</span> <span class="n">Ray</span><span class="o">&amp;</span> <span class="n">ray</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">sample</span><span class="p">(</span><span class="n">constant</span><span class="p">(</span><span class="n">to_vector3</span><span class="p">(</span><span class="n">ray</span><span class="p">.</span><span class="n">o</span><span class="p">)));</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+</div>
+
+<p>All strategies require a templated <code class="highlighter-rouge">Context&lt;T&gt;&amp; context</code> object as first
+argument. This is necessary for computing the PDF of strategies, which may
+contain both discrete and continuous distributions. More details on this are
+available in the paper.</p>
+
+<p>The second argument is the <code class="highlighter-rouge">RandomSequence</code> to which this strategy will be appended. Additional arguments can be provided as needed. In this case, we provide the initial camera provided by Mitsuba.</p>
+
+<p>The body of the strategy defines a random variable for sampling the next vertex
+in the path. In this case, we want to simply sample the camera vertex, which is
+given by the ray’s origin (<code class="highlighter-rouge">ray.o</code>). <code class="highlighter-rouge">to_vector3</code> converts the origin from
+Mitsuba’s data type to Aether’s. <code class="highlighter-rouge">constant</code> creates a constant random variable,
+with the value of the given point. And the result if then provided to <code class="highlighter-rouge">sample</code>
+as the result of the function.</p>
+
+<p>It is important to note that sampling the camera position is a special case in
+Aether. The camera position (and the initial sampled ray) is not actually
+sampled randomly, it has a fixed position. Formally, it is defined by a Dirac
+delta function. Aether does not currently provide a construct for handling
+Diracs. We assume the ratio between position density and the integrand is 1. A constant random variable in Aether has a PDF of 1, which correctly accounts for the ratio between density and integrand, but is not formally a Dirac. So the use of <code class="highlighter-rouge">constant</code> here is slightly misleading, but is only the case when sampling these camera paths.</p>
+
+<p>We first create an instance of the strategy:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Node</span><span class="o">&lt;</span><span class="n">sample_position_on_sensor_t</span><span class="o">&gt;</span> <span class="n">sampleCamPos</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>Then we append the strategy to our path:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Append the camera position
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleCamPos</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<p>The <code class="highlighter-rouge">Append</code> method simply stores the provided strategy along with its
+arguments. When the vertices are actually sampled, Aether will create a <code class="highlighter-rouge">context</code> object and call <code class="highlighter-rouge">sampleCamPos(context, camPath, ray);</code> to actually generate the new vertex.</p>
+
+<h4 id="append-the-primary-intersection">Append the Primary Intersection</h4>
+
+<p>At this point, <code class="highlighter-rouge">camPath</code> contains 1 strategy for the camera position. We now
+extend it to obtain the primary intersection vertex. As before, we create a
+strategy:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">struct</span> <span class="n">sample_primary_intersection_t</span> <span class="p">{</span>
+  <span class="n">Raycaster</span><span class="o">&amp;</span> <span class="n">raycaster</span><span class="p">;</span>
+
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">seq</span><span class="p">,</span> <span class="k">const</span> <span class="n">Ray</span><span class="o">&amp;</span> <span class="n">ray</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="k">const</span> <span class="n">Intersection</span> <span class="n">its</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">constant_call</span><span class="p">(</span><span class="n">raycaster</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">pt</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">its</span><span class="p">.</span><span class="n">p</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">sample</span><span class="p">(</span>
+      <span class="n">pt</span>
+      <span class="p">,</span> <span class="n">intersection_</span> <span class="o">=</span> <span class="n">its</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>In this strategy, we need to cast a ray into the scene. We wrap the call to
+<code class="highlighter-rouge">raycaster</code> in <code class="highlighter-rouge">context.constant_call()</code>. This tells Aether that we are calling
+deterministic code outside the language. The raycaster object is provided by the
+user.</p>
+
+<p>The line, <code class="highlighter-rouge">intersection_ = its</code>, tells Aether that we want to store the
+intersection information for this vertex. This information will be necessary when
+we compute the integrand.</p>
+
+<p>As before, we create an instance of the strategy, passing a raycaster object to
+the constructor:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Node</span><span class="o">&lt;</span><span class="n">sample_primary_intersection_t</span><span class="o">&gt;</span> <span class="n">samplePrimaryIntersection</span><span class="p">{</span><span class="n">raycaster</span><span class="p">};</span>
+</code></pre>
+</div>
+
+<p>Then we append the strategy to our path:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Append the primary intersection
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">samplePrimaryIntersection</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<h4 id="append-a-light-vertex">Append a Light Vertex</h4>
+
+<p>To complete our direct lighting path, we want to sample a vertex on a discretely
+chosen light source.</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">struct</span> <span class="n">sample_position_on_emitter_t</span> <span class="p">{</span>
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">seq</span><span class="p">,</span> <span class="n">UniDist</span><span class="o">&amp;</span> <span class="n">uniDist</span><span class="p">,</span> <span class="k">const</span> <span class="n">ref_vector</span><span class="o">&lt;</span><span class="n">Emitter</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">emitters</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+		<span class="k">auto</span> <span class="n">emitters_rv</span> <span class="o">=</span> <span class="n">discrete_dynamic</span><span class="p">(</span><span class="n">emitters</span><span class="p">);</span>
+		<span class="k">auto</span> <span class="n">emitter</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">emitters_rv</span><span class="p">,</span> <span class="n">context</span><span class="p">.</span><span class="n">Uniform1D</span><span class="p">(</span><span class="n">uniDist</span><span class="p">));</span>
+		<span class="k">auto</span> <span class="n">sampler</span> <span class="o">=</span> <span class="n">emitter</span><span class="o">-&gt;</span><span class="n">makeSampler</span><span class="p">();</span>
+		<span class="k">auto</span> <span class="n">pt</span> <span class="o">=</span> <span class="n">sampler</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">);</span>
+
+		<span class="k">return</span> <span class="n">sample</span><span class="p">(</span>
+			<span class="n">pt</span>
+			<span class="p">,</span> <span class="n">emitter_</span> <span class="o">=</span> <span class="n">emitter</span><span class="p">.</span><span class="n">get</span><span class="p">()</span>
+		<span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This strategy introduces several new constructs. <code class="highlighter-rouge">discrete_dynamic</code> creates a
+new uniform discrete random variable over the provided <code class="highlighter-rouge">emitters</code>. To actually
+sample an emitter from this random variable, we call <code class="highlighter-rouge">context.Sample(emitters_rv, context.Uniform1D(uniDist))</code>. For all discrete random variables inside strategies, we use <code class="highlighter-rouge">context.Sample()</code> instead of calling <code class="highlighter-rouge">emitters_rv.Sample()</code> directly. This is required for computing the PDF over the strategy and otherwise does not impact the user. For the same reason, we call <code class="highlighter-rouge">context.Uniform1D(uniDist))</code> to obtain a single uniform between 0 and 1, instead of calling <code class="highlighter-rouge">uniDist</code> directly. Next, we call <code class="highlighter-rouge">emitter-&gt;makeSampler()</code>, which creates a random variable for actually sampling the new position on the light. The actual definition of <code class="highlighter-rouge">makeSampler</code> is given below. We then actually generate the sample vertex by calling <code class="highlighter-rouge">sampler.Sample()</code> and return it along with the emitter itself, which will be used when computing the integrand.</p>
+
+<p>As before, we create an instance of the strategy:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Node</span><span class="o">&lt;</span><span class="n">sample_position_on_emitter_t</span><span class="o">&gt;</span> <span class="n">sampleEmtPosition</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>Then we append the strategy to our path, passing a uniform random number
+generator (<code class="highlighter-rouge">uniDist</code>) and the scene’s list of emitters as arguments:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Append an emitter vertex 
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleEmtPosition</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">,</span> <span class="n">scene</span><span class="o">-&gt;</span><span class="n">emitters</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<h4 id="defining-different-emitter-samplers">Defining Different Emitter Samplers</h4>
+
+<p>When we sample <code class="highlighter-rouge">emitter</code>, we don’t know what type of emitter it is. It might be
+a triangle mesh emitter, a sphere emitter, an environment map, or something
+else. In typical renderers, each emitter type is derived from some base class and overrides a
+virtual method for sampling a point on its surface. In Aether, we require that
+the result when sampling the point is a random variable in the
+language. All random variables are defined by a compile time symbolic
+expression (a template expression), which is encoded in its type. As such, 
+random variables defined by different expressions have different types. So the
+method that returns the random variable must have a different return type for
+each of them. This is an issue because virtual methods require a consistent
+return type.</p>
+
+<p>In order to support different return types, Aether provides a
+composite random variable construct. We create a compile time composite random variable over all the possible
+return values, then the virtual function selects at run time which of the return
+values should be selected. The composite random variable acts as a kind of
+table, where the possible values are supplied at compile time and the actual
+value is then selected at run time.</p>
+
+<p>Suppose we have a single emitter type, a triangle emitter. We first need to define its sample method:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">struct</span> <span class="n">trimesh_emitter</span> <span class="p">{</span>
+  <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="k">const</span> <span class="n">Triangle</span><span class="o">*&gt;</span> <span class="o">*</span><span class="n">trianglePtrs</span><span class="p">;</span>
+  <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span> <span class="o">*</span><span class="n">triangleWeights</span><span class="p">;</span>
+  <span class="k">const</span> <span class="n">Point</span> <span class="o">*</span><span class="n">positions</span><span class="p">;</span>
+  <span class="k">const</span> <span class="n">Normal</span> <span class="o">*</span><span class="n">normals</span><span class="p">;</span>
+
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">ContextType</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="n">SamplePosition</span><span class="p">(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">ContextType</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="n">UniDist</span><span class="o">&amp;</span> <span class="n">uniDist</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="c1">// Create a discrete random variable over all triangles
+</span>    <span class="k">auto</span> <span class="n">rv</span> <span class="o">=</span> <span class="n">discrete_dynamic</span><span class="p">(</span><span class="o">*</span><span class="n">trianglePtrs</span><span class="p">,</span> <span class="o">*</span><span class="n">triangleWeights</span><span class="p">);</span>
+
+    <span class="c1">// Pick 1 of the triangles
+</span>    <span class="k">auto</span> <span class="n">trianglePtr</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">context</span><span class="p">.</span><span class="n">Uniform1D</span><span class="p">(</span><span class="n">uniDist</span><span class="p">));</span>
+
+    <span class="k">const</span> <span class="n">Vector3</span> <span class="n">v0</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]]);</span>
+    <span class="k">const</span> <span class="n">Vector3</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]]);</span>
+    <span class="k">const</span> <span class="n">Vector3</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">2</span><span class="p">]]);</span>
+
+    <span class="k">auto</span> <span class="n">uv</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">Uniform2D</span><span class="p">(</span><span class="n">uniDist</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">pt</span> <span class="o">=</span> <span class="n">uniform_triangle</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">).</span><span class="n">Sample</span><span class="p">(</span><span class="n">uv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">uv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+
+    <span class="c1">// Fill intersection information for integrand evaluation
+</span>    <span class="n">Intersection</span> <span class="n">its</span><span class="p">;</span>
+    <span class="n">its</span><span class="p">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">to_point</span><span class="p">(</span><span class="n">pt</span><span class="p">.</span><span class="n">Value</span><span class="p">());</span>
+    <span class="n">its</span><span class="p">.</span><span class="n">geoFrame</span> <span class="o">=</span> <span class="n">Frame</span><span class="p">(</span><span class="n">to_normal</span><span class="p">((</span><span class="n">v1</span> <span class="o">-</span> <span class="n">v0</span><span class="p">).</span><span class="n">cross</span><span class="p">(</span><span class="n">v2</span> <span class="o">-</span> <span class="n">v0</span><span class="p">).</span><span class="n">normalized</span><span class="p">()));</span>
+    <span class="c1">// Phong normal interpolation
+</span>    <span class="k">const</span> <span class="n">Normal</span> <span class="n">n0</span> <span class="o">=</span> <span class="n">normals</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]];</span>
+    <span class="k">const</span> <span class="n">Normal</span> <span class="n">n1</span> <span class="o">=</span> <span class="n">normals</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]];</span>
+    <span class="k">const</span> <span class="n">Normal</span> <span class="n">n2</span> <span class="o">=</span> <span class="n">normals</span><span class="p">[</span><span class="n">trianglePtr</span><span class="o">-&gt;</span><span class="n">idx</span><span class="p">[</span><span class="mi">2</span><span class="p">]];</span>
+    <span class="k">const</span> <span class="n">Float</span> <span class="n">a</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">uv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="k">const</span> <span class="n">Float</span> <span class="n">b0</span> <span class="o">=</span> <span class="mf">1.</span><span class="n">f</span> <span class="o">-</span> <span class="n">a</span><span class="p">;</span>
+    <span class="k">const</span> <span class="n">Float</span> <span class="n">b1</span> <span class="o">=</span> <span class="n">uv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">a</span><span class="p">;</span>
+    <span class="n">its</span><span class="p">.</span><span class="n">shFrame</span> <span class="o">=</span> <span class="n">Frame</span><span class="p">(</span><span class="n">b0</span> <span class="o">*</span> <span class="n">n0</span> <span class="o">+</span> <span class="n">b1</span> <span class="o">*</span> <span class="n">n1</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.</span><span class="n">f</span> <span class="o">-</span> <span class="n">b0</span> <span class="o">-</span> <span class="n">b1</span><span class="p">)</span> <span class="o">*</span> <span class="n">n2</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">sample</span><span class="p">(</span>
+      <span class="n">pt</span>
+      <span class="p">,</span> <span class="n">v0_</span> <span class="o">=</span> <span class="n">v0</span>
+      <span class="p">,</span> <span class="n">v1_</span> <span class="o">=</span> <span class="n">v1</span>
+      <span class="p">,</span> <span class="n">v2_</span> <span class="o">=</span> <span class="n">v2</span>
+      <span class="p">,</span> <span class="n">intersection_</span> <span class="o">=</span> <span class="n">its</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+</div>
+
+<p>The <code class="highlighter-rouge">SamplePosition</code> method first discretely picks an individual triangle from
+the emitter’s triangle mesh. It then simply samples a point uniformly on the triangle (the
+<code class="highlighter-rouge">uniform_triangle</code> function is part of the standard library of Aether) and 
+fills in some intersection information needed for integrand evaluation.</p>
+
+<p>We need to create a composite random variable with all the possible
+emitter types. In this case we just have one:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">using</span> <span class="n">emitter_composite_t</span> <span class="o">=</span> <span class="n">CompositeRandomVar</span><span class="o">&lt;</span><span class="n">trimesh_emitter</span><span class="o">&gt;</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>In order for Aether to know which method to call when the composite random
+variable is sampled, we need the following template wrapper:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">template</span> <span class="o">&lt;&gt;</span>
+<span class="k">struct</span> <span class="n">SampleCall</span><span class="o">&lt;</span><span class="n">mitsuba</span><span class="o">::</span><span class="n">trimesh_emitter</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="k">template</span> <span class="o">&lt;</span><span class="kt">int</span> <span class="n">I</span><span class="p">,</span> <span class="k">typename</span> <span class="n">Cond</span><span class="p">,</span> <span class="k">typename</span> <span class="n">ContextType</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="n">mitsuba</span><span class="o">::</span><span class="n">trimesh_emitter</span><span class="o">&amp;</span> <span class="n">emitter</span><span class="p">,</span> <span class="n">_int</span><span class="o">&lt;</span><span class="n">I</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">Cond</span><span class="p">,</span> <span class="n">aether</span><span class="o">::</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">ContextType</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="n">mitsuba</span><span class="o">::</span><span class="n">UniDist</span> <span class="o">&amp;</span><span class="n">uniDist</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">emitter</span><span class="p">.</span><span class="n">SamplePosition</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+</div>
+
+<p>This functor just forwards the given arguments to the emitter’s actual sampling
+method. The other arguments to the method are internal to Aether and aren’t
+relevant to the user.</p>
+
+<p>We need to create a virtual method on Mitsuba’s emitter to return the composite:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">virtual</span> <span class="n">emitter_composite_t</span> <span class="n">makeSampler</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="p">{};</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>Finally, we override this virtual method in Mitsuba’s area light definition to
+return a <code class="highlighter-rouge">trimesh_emitter</code>:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">emitter_composite_t</span> <span class="n">makeSampler</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+  <span class="n">ref</span><span class="o">&lt;</span><span class="n">TriMesh</span><span class="o">&gt;</span> <span class="n">triMesh</span> <span class="o">=</span> <span class="n">m_shape</span><span class="o">-&gt;</span><span class="n">createTriMesh</span><span class="p">();</span>
+  <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span> <span class="n">triangleWeights</span><span class="p">;</span>
+  <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="k">const</span> <span class="n">Triangle</span><span class="o">*&gt;</span> <span class="n">trianglePtrs</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">triangleCount</span> <span class="o">=</span> <span class="n">triMesh</span><span class="o">-&gt;</span><span class="n">getTriangleCount</span><span class="p">();</span>
+  <span class="k">const</span> <span class="n">Triangle</span><span class="o">*</span> <span class="n">trianglePtr</span> <span class="o">=</span> <span class="n">triMesh</span><span class="o">-&gt;</span><span class="n">getTriangles</span><span class="p">();</span>
+  <span class="k">const</span> <span class="n">Point</span><span class="o">*</span> <span class="n">vertexPositions</span> <span class="o">=</span> <span class="n">triMesh</span><span class="o">-&gt;</span><span class="n">getVertexPositions</span><span class="p">();</span>
+  <span class="k">const</span> <span class="n">Normal</span><span class="o">*</span> <span class="n">vertexNormals</span> <span class="o">=</span> <span class="n">triMesh</span><span class="o">-&gt;</span><span class="n">getVertexNormals</span><span class="p">();</span>
+  <span class="n">trianglePtrs</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">triangleCount</span><span class="p">);</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">triangleCount</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">trianglePtrs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">trianglePtr</span><span class="o">++</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="n">triangleWeights</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">triangleCount</span><span class="p">);</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">triangleCount</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Sample according to area
+</span>    <span class="n">triangleWeights</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">Real</span><span class="p">(</span><span class="n">trianglePtrs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">surfaceArea</span><span class="p">(</span><span class="n">vertexPositions</span><span class="p">)));</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="n">trimesh_emitter</span><span class="p">{</span><span class="o">&amp;</span><span class="n">trianglePtrs</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">triangleWeights</span><span class="p">,</span> <span class="n">vertexPositions</span><span class="p">,</span> <span class="n">vertexNormals</span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This method collects the necessary data for the triangle vertices, as required
+to construct a <code class="highlighter-rouge">trimesh_emitter</code>. It’s more efficient to construct this
+<code class="highlighter-rouge">trimesh_emitter</code> once, then store it as a member of area light, and just return
+the member variable from <code class="highlighter-rouge">makeSampler()</code>, but we include the full definition
+here for simplicity.</p>
+
+<p>When this method is called at run time, it returns a <code class="highlighter-rouge">trimesh_emitter</code>, which selects the appropriate table entry from the composite random variable.</p>
+
+<h4 id="compute-an-estimate">Compute an Estimate</h4>
+
+<p>At this point, the path contains 3 strategies and represents a direct lighting path. Random sequences in Aether are sampled lazily so nothing has actually been sampled yet. To actually sample the vertices of our direct lighting path, we can simply call:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">camPath</span><span class="p">.</span><span class="n">Sample</span><span class="p">();</span>
+</code></pre>
+</div>
+
+<p>We are now ready to compute an estimate for <code class="highlighter-rouge">camPath</code>. We need to compute the
+integrand. Aether requires the user to provide an integrand function. It should compute the
+radiance along a given path:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Spectrum</span> <span class="nf">integrand</span><span class="p">(</span><span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">path</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// Compute the radiance along path
+</span><span class="p">}</span>
+</code></pre>
+</div>
+
+<p>Aether provides additional methods for accessing data in a <code class="highlighter-rouge">RandomSequence</code>:</p>
+<ul>
+  <li>We can access the _i_th sample with <code class="highlighter-rouge">path[i]</code></li>
+  <li>The actual 3D vertex of the _i_th sample can be accessed with <code class="highlighter-rouge">path[i].Value()</code></li>
+  <li>The number of samples in the path is given by <code class="highlighter-rouge">path.Size()</code></li>
+  <li>Additional data for the _i_th sample can be accessed with
+<code class="highlighter-rouge">path[i].Get(intersection_)</code></li>
+</ul>
+
+<p>See the API for more details.</p>
+
+<p>To complete the estimate, we need to compute the PDF. Aether automatically
+generates code for computing the PDF. The PDF of our path can be obtained by calling:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">camPath</span><span class="p">.</span><span class="n">Pdf</span><span class="p">();</span>
+</code></pre>
+</div>
+
+<p>So the final estimate is simply:</p>
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">auto</span> <span class="n">estimate</span> <span class="o">=</span> <span class="n">integrand</span><span class="p">(</span><span class="n">camPath</span><span class="p">)</span> <span class="o">/</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Pdf</span><span class="p">();</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h3 id="writing-a-path-tracer-in-mitsuba"><a href="#header-2"></a>Writing a Path Tracer in Mitsuba</h3>
+
+<p>One of the benefits of Aether is that its constructs are designed to be
+reusable. Strategies can easily be reused in different algorithms so if we want
+to extend our direct lighting integrator and write a path tracer, we can use much of what
+we have already done.</p>
+
+<p>We start by creating a path and appending the camera position and the primary
+intersection, reusing the strategies from above:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Create camera subpath
+</span><span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;</span> <span class="n">camPath</span><span class="p">;</span>
+<span class="c1">// Append the camera position
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleCamPos</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+<span class="c1">// Append the primary intersection
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">samplePrimaryIntersection</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+</code></pre>
+</div>
+
+<h4 id="append-bsdf-vertices">Append BSDF Vertices</h4>
+
+<p>Now we want to extend the path by sampling the BSDF and intersecting with the
+scene. As before, we create a strategy:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="k">struct</span> <span class="n">sample_bsdf_t</span> <span class="p">{</span>
+  <span class="n">Raycaster</span><span class="o">&amp;</span> <span class="n">raycaster</span><span class="p">;</span>
+
+  <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+  <span class="k">auto</span> <span class="k">operator</span><span class="p">()(</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="k">const</span> <span class="n">RandomSequence</span><span class="o">&lt;</span><span class="n">Vertex</span><span class="o">&gt;&amp;</span> <span class="n">seq</span><span class="p">,</span> <span class="n">UniDist</span><span class="o">&amp;</span> <span class="n">uniDist</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+    <span class="c1">// Create coordinate basis at previous intersection point
+</span>    <span class="k">const</span> <span class="n">Intersection</span> <span class="o">&amp;</span><span class="n">currentIts</span> <span class="o">=</span> <span class="n">seq</span><span class="p">.</span><span class="n">Back</span><span class="p">().</span><span class="n">Get</span><span class="p">(</span><span class="n">intersection_</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">shadingFrame</span> <span class="o">=</span> <span class="n">make_random_frame</span><span class="p">(</span><span class="n">currentIts</span><span class="p">);</span>
+
+    <span class="c1">// Get direction to previous vertex
+</span>    <span class="k">auto</span> <span class="n">directionToPreviousWorldVal</span> <span class="o">=</span> <span class="p">(</span><span class="n">seq</span><span class="p">[</span><span class="n">seq</span><span class="p">.</span><span class="n">Size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">2</span><span class="p">].</span><span class="n">Value</span><span class="p">()</span> <span class="o">-</span> <span class="n">seq</span><span class="p">[</span><span class="n">seq</span><span class="p">.</span><span class="n">Size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">].</span><span class="n">Value</span><span class="p">()).</span><span class="n">normalized</span><span class="p">();</span>
+    <span class="k">auto</span> <span class="n">directionToPreviousWorld</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">directionToPreviousWorldVal</span><span class="p">);</span>
+
+    <span class="c1">// Convert to local coordinates
+</span>    <span class="k">auto</span> <span class="n">directionToPreviousLocal</span> <span class="o">=</span> <span class="n">to_local</span><span class="p">(</span><span class="n">shadingFrame</span><span class="p">,</span> <span class="n">directionToPreviousWorld</span><span class="p">);</span>
+
+    <span class="c1">// Sample a new outgoing direction
+</span>    <span class="k">const</span> <span class="n">BSDF</span> <span class="o">*</span><span class="n">bsdf</span> <span class="o">=</span> <span class="n">currentIts</span><span class="p">.</span><span class="n">getBSDF</span><span class="p">();</span>
+    <span class="k">auto</span> <span class="n">bsdfSampler</span> <span class="o">=</span> <span class="n">bsdf</span><span class="o">-&gt;</span><span class="n">makeSampler</span><span class="p">(</span><span class="n">currentIts</span><span class="p">.</span><span class="n">toLocal</span><span class="p">(</span><span class="n">to_vector</span><span class="p">(</span><span class="n">directionToPreviousWorldVal</span><span class="p">)),</span> <span class="n">currentIts</span><span class="p">);</span>
+
+    <span class="c1">// Convert outgoing direction to world coordinates
+</span>    <span class="k">auto</span> <span class="n">directionToNextLocal</span> <span class="o">=</span> <span class="n">bsdfSampler</span><span class="p">.</span><span class="n">Sample</span><span class="p">(</span><span class="n">directionToPreviousLocal</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">directionToNextWorld</span> <span class="o">=</span> <span class="n">to_world</span><span class="p">(</span><span class="n">shadingFrame</span><span class="p">,</span> <span class="n">directionToNextLocal</span><span class="p">);</span>
+
+    <span class="k">auto</span> <span class="n">p</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">seq</span><span class="p">.</span><span class="n">Back</span><span class="p">().</span><span class="n">Value</span><span class="p">());</span>
+
+    <span class="c1">// Obtain next intersection point
+</span>    <span class="k">const</span> <span class="n">Ray</span> <span class="n">ray</span><span class="p">(</span><span class="n">to_point</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">Value</span><span class="p">()),</span> <span class="n">to_vector</span><span class="p">(</span><span class="n">directionToNextWorld</span><span class="p">.</span><span class="n">Value</span><span class="p">()));</span>
+    <span class="k">const</span> <span class="n">Intersection</span> <span class="n">nextIts</span> <span class="o">=</span> <span class="n">context</span><span class="p">.</span><span class="n">constant_call</span><span class="p">(</span><span class="n">raycaster</span><span class="p">,</span> <span class="n">ray</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">v0</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">nextIts</span><span class="p">.</span><span class="n">triangle_v0</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">nextIts</span><span class="p">.</span><span class="n">triangle_v1</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">to_vector3</span><span class="p">(</span><span class="n">nextIts</span><span class="p">.</span><span class="n">triangle_v2</span><span class="p">);</span>
+
+    <span class="c1">// Recompute intersection point in Aether
+</span>    <span class="k">auto</span> <span class="n">pt</span> <span class="o">=</span> <span class="n">intersect</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">directionToNextWorld</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">optional_sample</span><span class="p">(</span>
+      <span class="n">nextIts</span><span class="p">.</span><span class="n">isValid</span><span class="p">()</span>	
+      <span class="p">,</span> <span class="n">pt</span>
+      <span class="p">,</span> <span class="n">v0_</span> <span class="o">=</span> <span class="n">v0</span>
+      <span class="p">,</span> <span class="n">v1_</span> <span class="o">=</span> <span class="n">v1</span>
+      <span class="p">,</span> <span class="n">v2_</span> <span class="o">=</span> <span class="n">v2</span>
+      <span class="p">,</span> <span class="n">intersection_</span> <span class="o">=</span> <span class="n">nextIts</span>
+      <span class="p">,</span> <span class="n">emitter_</span> <span class="o">=</span> <span class="n">emitter</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+</div>
+
+<p>This strategy introduces two new concepts. After casting the ray into the
+scene, we recompute the intersection point in Aether. The reason for this is that in order for Aether to automatically compute the PDF, it needs derivatives of the intersection point with respect to the uniforms that were used to sample it. In order to compute the derivatives, the intersection point must be a symbolic random variable. But the intersection point returned by the raycaster is a numerical 3D point. To obtain a symbolic version of the intersection point, the raycaster must return the vertices (<code class="highlighter-rouge">v0</code>, <code class="highlighter-rouge">v1</code>, <code class="highlighter-rouge">v2</code>) of the intersected triangle, which are constant in the neighborhood of the intersection point, and we then recompute the ray-triangle intersection in Aether, using the provided <code class="highlighter-rouge">intersect</code> function. The vertices (<code class="highlighter-rouge">v0</code>, <code class="highlighter-rouge">v1</code>, <code class="highlighter-rouge">v2</code>) are also stored as additional information with the sample. This is also necessary for computing the PDF.</p>
+
+<p>In previous strategies, we returned the result in a call to <code class="highlighter-rouge">sample</code>. Here, we
+instead return the result in a call to <code class="highlighter-rouge">optional_sample</code>. This is used to indicate to
+Aether if the sample is actually valid, i.e. that the ray actually intersected
+the scene. The first argument to <code class="highlighter-rouge">optional_sample</code> should be true for valid
+samples and false for invalid samples.</p>
+
+<p>As before, we create an instance of the strategy, passing a raycaster object to
+the constructor:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Node</span><span class="o">&lt;</span><span class="n">sample_bsdf_t</span><span class="o">&gt;</span> <span class="n">sampleBSDF</span><span class="p">{</span><span class="n">raycaster</span><span class="p">};</span>
+</code></pre>
+</div>
+
+<p>We can then append the strategy as normal, but here we want to sample the BSDF
+multiple times to extend the path:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Extend by successive BSDF sampling until max depth
+</span><span class="k">for</span><span class="p">(;</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Size</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">maxDepth</span><span class="p">;)</span> <span class="p">{</span>
+  <span class="n">camPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleBSDF</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// Actually sample the path 
+</span><span class="n">camPath</span><span class="p">.</span><span class="n">Sample</span><span class="p">();</span>
+</code></pre>
+</div>
+
+<h4 id="compute-an-estimate-1">Compute an Estimate</h4>
+
+<p>We have a path will length <code class="highlighter-rouge">maxDepth</code>. In order to create an estimate, we want
+to take each prefix of our path and connect it to an emitter so that we end up
+with a complete 3-vertex path, 4-vertex path, etc.</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="n">Spectrum</span> <span class="n">Li</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">length</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Size</span><span class="p">();</span> <span class="n">length</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// Obtain a prefix subpath
+</span>  <span class="k">auto</span> <span class="n">subPath</span> <span class="o">=</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">);</span>
+
+  <span class="c1">// Append an emitter vertex 
+</span>  <span class="n">subPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleEmtPosition</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">,</span> <span class="n">scene</span><span class="o">-&gt;</span><span class="n">emitters</span><span class="p">);</span>
+
+  <span class="c1">// Actually sample the emitter vertex (all the previous vertices have 
+</span>  <span class="c1">// already been sampled; they will not be resampled)
+</span>  <span class="n">subPath</span><span class="p">.</span><span class="n">Sample</span><span class="p">();</span>
+
+  <span class="c1">// Update estimate
+</span>  <span class="n">Li</span> <span class="o">+=</span> <span class="n">integrand</span><span class="p">(</span><span class="n">subPath</span><span class="p">)</span> <span class="o">/</span> <span class="n">subPath</span><span class="p">.</span><span class="n">Pdf</span><span class="p">();</span>
+<span class="p">}</span>
+<span class="k">return</span> <span class="n">Li</span><span class="p">;</span>
+</code></pre>
+</div>
+
+<p>This loop introduces the <code class="highlighter-rouge">Slice</code> method, which can be used on a <code class="highlighter-rouge">RandomSequence</code>
+to obtain a subsequence. The returned subsequence is a valid <code class="highlighter-rouge">RandomSequence</code> so
+it supports all the same methods. Aether also provides methods for concatenating
+sequences and reversing sequences, which are useful in more complex algorithms.</p>
+
+<p>This example illustrates clearly some of the advantages of Aether: strategies can be easily reused, as can the integrand function; and the <code class="highlighter-rouge">RandomSequence</code> data structure makes it easy to assemble paths. The amount of code required to extend direct lighting to full path tracing is relatively small.</p>
+
+<h4 id="compute-an-estimate-with-mis">Compute an Estimate With MIS</h4>
+
+<p>Now we extend the path tracer to use MIS and combine 2 paths: 1 sampled by the
+BSDF and the other sampled by the light. We only need to make a few changes to
+the loop body:</p>
+
+<div class="language-cpp highlighter-rouge"><pre class="highlight"><code><span class="c1">// Obtain a subpath sampled by the BSDF
+</span><span class="k">auto</span> <span class="n">bsdfPath</span> <span class="o">=</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+
+<span class="c1">// BSDF sampled path + sample point on light
+</span><span class="k">auto</span> <span class="n">lightPath</span> <span class="o">=</span> <span class="n">camPath</span><span class="p">.</span><span class="n">Slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">);</span>
+<span class="c1">// Sample the light
+</span><span class="n">lightPath</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="n">sampleEmtPosition</span><span class="p">,</span> <span class="n">uniDist</span><span class="p">,</span> <span class="n">scene</span><span class="o">-&gt;</span><span class="n">emitters</span><span class="p">);</span>
+<span class="n">lightPath</span><span class="p">.</span><span class="n">Sample</span><span class="p">();</span>
+
+<span class="c1">// Combine BSDF path and light path
+// Returns a list of paths with their MIS weights
+</span><span class="k">auto</span> <span class="n">combinedList</span> <span class="o">=</span> <span class="n">combine</span><span class="o">&lt;</span><span class="n">PowerHeuristic</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bsdfPath</span><span class="p">,</span> <span class="n">lightPath</span><span class="p">);</span>
+
+<span class="c1">// Sum up the contributions
+</span><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span> <span class="o">&amp;</span><span class="n">combined</span> <span class="o">:</span> <span class="n">combinedList</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">const</span> <span class="k">auto</span> <span class="o">&amp;</span><span class="n">path</span> <span class="o">=</span> <span class="n">combined</span><span class="p">.</span><span class="n">sequence</span><span class="p">;</span>
+  <span class="n">Li</span> <span class="o">+=</span> <span class="n">combined</span><span class="p">.</span><span class="n">weight</span> <span class="o">*</span> <span class="p">(</span><span class="n">integrand</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">/</span> <span class="n">path</span><span class="p">.</span><span class="n">Pdf</span><span class="p">());</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>We obtain 2 subpaths: 1 from sampling the BSDF (which is just <code class="highlighter-rouge">camPath</code>) and the
+other from <code class="highlighter-rouge">camPath</code> with 1 fewer vertex, which is then extended by sampling a
+light vertex. Aether provides the <code class="highlighter-rouge">combine</code> primitive to make it easy to compute
+MIS weights. The <code class="highlighter-rouge">PowerHeuristic</code> is provided by Aether. But the user can easily
+implement alternative combining heuristics. The result of <code class="highlighter-rouge">combine</code> is a list
+of weight, path pairs. Updating the estimate simply involves multiplying the
+given weight by the standard estimate.</p>
+
+<hr />
+
+
+      </section>
+    </div>
+    <script src="js/scale.fix.js"></script>
+  </body>
+</html>
+
