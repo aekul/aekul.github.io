@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Efficient Automatic Scheduling of Imaging and Vision Pipelines for the GPU</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.css" integrity="sha512-6sALqOPMrNSc+1p5xOhPwGIzs6kIlST+9oGWlI4Wwcbj1saaX9J3uzO3Vub016dmHV7hM+bMi/rfXLiF5DNIZg==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    <link rel="stylesheet" href="../style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.js" integrity="sha512-XMlgZzPyVXf1I/wbGnofk1Hfdx+zAWyZjh6c21yGo/k1zNC4Ve6xcQnTDTCHrjFGsOrVicJsBURLYktVEu/8vQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="text-center">Efficient Automatic Scheduling of Imaging and Vision Pipelines for the GPU</h2>
+      <div class="spacer"></div>
+      <p><a href="https://aekul.github.io">Luke Anderson</a>, MIT CSAIL</p>
+      <p><a href="https://andrew.adams.pub/">Andrew Adams</a>, Adobe</p>
+      <p><a href="">Karima Ma</a>, MIT CSAIL</p>
+      <p><a href="https://cseweb.ucsd.edu/~tzli/">Tzu-Mao Li</a>, MIT CSAIL and UC San Diego</p>
+      <p><a href="">Tian Jin</a>, MIT CSAIL</p>
+      <p><a href="http://people.csail.mit.edu/jrk/">Jonathan Ragan-Kelley</a>, MIT CSAIL</p>
+      <hr/>
+      <h2>Abstract</h2>
+      <p class="text-justify">
+      We present a new algorithm to quickly generate high-performance GPU implementations of complex imaging and vision pipelines, directly from high-level Halide algorithm code. It is fully automatic, requiring no schedule templates or hand-optimized kernels. We address the scalability challenge of extending search-based automatic scheduling to map large real-world programs to the deep hierarchies of memory and parallelism on GPU architectures in reasonable compile time. We achieve this using (1) a two-phase search algorithm that first ‘freezes’ decisions for the lowest cost sections of a program, allowing relatively more time to be spent on the important stages, (2) a hierarchical sampling strategy that groups schedules based on their structural similarity, then samples representatives to be evaluated, allowing us to explore a large space with few samples, and (3) memoization of repeated partial schedules, amortizing their cost over all their occurrences. We guide the process with an efficient cost model combining machine learning, program analysis, and GPU architecture knowledge.
+We evaluate our method’s performance on a diverse suite of real-world imaging and vision pipelines. Our scalability optimizations lead to average compile time speedups of 49x (up to 530x). We find schedules that are on average 1.7x faster than existing automatic solutions (up to 5x), and competitive with what the best human experts were able to achieve in an active effort to beat our automatic results.
+      </p>
+      <div class="spacer"></div>
+      <h2>Publication</h2>
+      Efficient Automatic Scheduling of Imaging and Vision Pipelines for the GPU<br/>
+      Luke Anderson, Andrew Adams, Karima Ma, Tzu-Mao Li, Tian Jin, Jonathan Ragan-Kelley<br/>
+      <em>Proceedings of the ACM on Programming Languages (OOPSLA 2021)</em>
+
+      <div class="spacer"></div>
+      <h2>Files</h2>
+      <p><a
+         href="https://dl.acm.org/doi/10.1145/3485486">OOPSLA 2021 Paper</a></p>
+
+      <div class="spacer"></div>
+      <h2>BibTeX</h2>
+      <p id="bibtex" class="text-justify">
+      </p>
+
+      <div class="spacer"></div>
+      <h2>Acknowledgments</h2>
+      <p class="text-justify">
+      This work was partially funded by Toyota Research Institute, NSF awards CCF-1723445 and CCF- 1846502, and DARPA agreement HR00112090017.
+      </p>
+
+
+    </div>
+    <div class="large-spacer"></div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({ TeX: { extensions: ["color.js"] }});
+    </script>
+    <script>CodeMirror(document.querySelector('#bibtex'), {
+  lineNumbers: false,
+  tabSize: 2,
+  lineWrapping: true,
+  scrollbarStyle: null,
+  viewportMargin: Infinity,
+  value: `@article{Anderson:2021:GPUAutoscheduler,
+  author = {Anderson, Luke and Adams, Andrew and Ma, Karima and Li, Tzu-Mao and Jin, Tian and Ragan-Kelley, Jonathan},
+  title = {Efficient Automatic Scheduling of Imaging and Vision Pipelines for the GPU},
+  journal = {Proc. ACM Program. Lang.},
+  volume = {5},
+  number = {OOPSLA},
+  articleno = {109},
+  year = {2021},
+  numpages = {28}
+  publisher = {ACM},
+  doi = {10.1145/3485486},
+}`,
+  mode: 'latex',
+  readOnly: true
+});</script>
+  </body>
+</html>

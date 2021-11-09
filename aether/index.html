@@ -7,7 +7,9 @@
     <title>Aether: An Embedded Domain Specific Sampling Language for Monte Carlo Rendering</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.css" integrity="sha512-6sALqOPMrNSc+1p5xOhPwGIzs6kIlST+9oGWlI4Wwcbj1saaX9J3uzO3Vub016dmHV7hM+bMi/rfXLiF5DNIZg==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
     <link rel="stylesheet" href="../style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.js" integrity="sha512-XMlgZzPyVXf1I/wbGnofk1Hfdx+zAWyZjh6c21yGo/k1zNC4Ve6xcQnTDTCHrjFGsOrVicJsBURLYktVEu/8vQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
   <body>
     <div class="container">
@@ -65,6 +67,11 @@
       <p>instead of:</p>
       <p class="math">`p(\omega) = \sqrt{| \det J^\text{T} J |} p(u_1,u_2)`</p>
       <div class="spacer"></div>
+
+      <h2>BibTeX</h2>
+      <p id="bibtex" class="text-justify">
+      </p>
+
       <h2>Acknowledgments</h2>
       <p class="text-justify">
       Jonathan Ragan-Kelley provided valuable feedback and helped scope the
@@ -83,5 +90,25 @@
     <script type="text/x-mathjax-config">
       MathJax.Hub.Config({ TeX: { extensions: ["color.js"] }});
     </script>
+    <script>CodeMirror(document.querySelector('#bibtex'), {
+  lineNumbers: false,
+  tabSize: 2,
+  lineWrapping: true,
+  scrollbarStyle: null,
+  viewportMargin: Infinity,
+  value: `@article{Anderson:2017:Aether,
+  author = {Anderson, Luke and Li, Tzu-Mao and Lehtinen, Jaakko and Durand, Fr{\'e}do},
+  title = {Aether: An Embedded Domain Specific Sampling Language for Monte Carlo Rendering},
+  journal = ACM Trans. Graph. (Proc. SIGGRAPH),
+  volume = {36},
+  number = {4},
+  year = {2017},
+  pages = {99:1--99:16},
+  publisher = {ACM},
+  doi = {10.1145/3072959.3073704}
+}`,
+  mode: 'latex',
+  readOnly: true
+});</script>
   </body>
 </html>
